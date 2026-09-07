@@ -1,5 +1,6 @@
 # Laporan Praktikum Minggu 1.
-
+Gaduh Prakoso
+244107020150
 ---
 
 # Refleksi Pembelajaran - Minggu 1
