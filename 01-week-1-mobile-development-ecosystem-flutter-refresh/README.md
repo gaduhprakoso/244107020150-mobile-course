@@ -2,7 +2,6 @@
 
 * **Nama:** Gaduh Prakoso
 * **NIM:** 244107020150
-* **Kelas:** Praktikum Pemrograman Mobile
 
 ---
 
