@@ -11,17 +11,17 @@
 ### 1.1
 Hapus Expanded pada baris nama, lalu amati peringatan overflow atau perilaku layout-nya; kembalikan setelah itu.
 
-![screenshots](screenshots/screenshots-01.png)
+![screenshots](screenshots/Screenshots-01.png)
 
 ### 1.2
 Ganti mainAxisSize: MainAxisSize.min menjadi nilai default dan amati perubahan tinggi kartu.
 
-![screenshots](screenshots/screenshots-10.png)
+![screenshots](screenshots/Screenshots-10.png)
 
 ### 1.3
 Tambahkan satu baris data (misal Email) menggunakan pola Row + Expanded yang sama.
 
-![screenshots](screenshots/screenshots-09.png)
+![screenshots](screenshots/Screenshots-09.png)
 
 ---
 
@@ -35,13 +35,13 @@ Ubah breakpoint dari 700 menjadi nilai lain dan amati perubahan jumlah kolom.
 ### 2.2.
 Ubah themeMode menjadi ThemeMode.dark, lalu kembalikan ke ThemeMode.system.
 
-![screenshots](screenshots/screenshots-04.png)
-![screenshots](screenshots/screenshots-05.png)
+![screenshots](screenshots/Screenshots-04.png)
+![screenshots](screenshots/Screenshots-05.png)
 
 ### 2.3
 Tambahkan Semantics atau label yang bermakna pada elemen yang penting bagi screen reader.
 
-![screenshots](screenshots/screenshots-05.png)
+![screenshots](screenshots/Screenshots-05.png)
 
 ---
 
@@ -52,7 +52,7 @@ Dashboard dikembangkan menjadi halaman *Academic Overview* yang memuat:
 2. **Statistik Akademik**: 4 kartu informasi (`InfoCard`) mencakup **IPK (3.85)**, **Kehadiran (95%)**, **SKS Ditempuh (72)**, dan **Status (Aktif)**.
 3. **Breakpoint Konstanta**: Menggunakan satu konstanta global `const double kWideBreakpoint = 700;`.
 
-![screenshots](screenshots/screenshots-06.png)
+![screenshots](screenshots/Screenshots-06.png)
 
 ---
 
@@ -106,8 +106,16 @@ Dashboard dikembangkan menjadi halaman *Academic Overview* yang memuat:
 
 ## 5. Refleksi
 
-1. **Imperative vs Declarative**: Flutter menggunakan pendekatan deklaratif di mana UI dirender ulang secara otomatis berdasarkan perubahan *state* dan ukuran layar.
-2. **Penggunaan `Expanded`**: Sangat membantu untuk mengisi sisa ruang secara proporsional dalam `Row`/`Column`, namun dapat memicu error *overflow* jika digunakan di dalam parent tanpa batasan ukuran yang jelas.
-3. **Pengaruh Breakpoint & Theme**: Membantu meningkatkan pengalaman pengguna (*UX*) secara signifikan melalui adaptasi tata letak layar dan kenyamanan kontras visual.
+## 5.1 Apa perbedaan cara berpikir imperative dan declarative saat membangun UI?
+Pendekatan imperatif menuntut kita menuliskan instruksi secara bertahap untuk memodifikasi elemen UI secara manual, berlawanan dengan deklaratif yang memusatkan perhatian pada wujud akhir antarmuka berdasarkan kondisi data terkini. Di dalam ekosistem Flutter, gaya deklaratif jauh lebih ideal karena sistem akan otomatis merender ulang komponen-komponen layar setiap kali terjadi pergeseran nilai state maupun ukuran tampilan.
+
+## 5.2 Kapan Expanded membantu dan kapan penggunaannya justru menghasilkan layout error?
+Widget `Expanded` sangat diandalkan saat kita ingin memaksa komponen anak memenuhi rongga kosong yang tersisa di dalam wadah `Row` atau `Column`, namun keliru jika diterapkan pada kontainer induk yang tidak memiliki batas ukuran pasti (*unbounded width/height*) sehingga memicu kendala *overflow*. Untuk mengatasinya, kita bisa beralih menggunakan `Flexible`, memangkas teks dengan parameter *overflow*, atau menyesuaikan ulang tata letak ketika menyentuh ukuran *breakpoint* tertentu.
+
+## 5.3 Bagaimana breakpoint dan theme memengaruhi pengalaman pengguna?
+Keberadaan *breakpoint* dan tema visual memegang peranan vital dalam mendongkrak kenyamanan interaksi pengguna secara keseluruhan. *Breakpoint* berfungsi menentukan titik transisi pergeseran struktur layout—misalnya dari tampilan tunggal menjadi multi-kolom—sementara tema memastikan estetika, tingkat keterbacaan teks, serta keselarasan mode gelap dan terang tetap terjaga secara optimal di berbagai situasi.
+
+## 5.4 Apa yang Anda verifikasi dari rekomendasi AI setelah tugas inti selesai?
+Pemeriksaan ulang terhadap saran AI dijalankan untuk memastikan aspek fungsionalitas terpenuhi dengan baik: mulai dari konsistensi tingkat responsivitas pada layar di bawah 600px, perlindungan standar aksesibilitas, hingga validasi kestabilan seluruh widget di kanal rilis resmi Flutter.
 
 ---
