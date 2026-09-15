@@ -11,17 +11,17 @@
 ### 1.1
 Hapus Expanded pada baris nama, lalu amati peringatan overflow atau perilaku layout-nya; kembalikan setelah itu.
 
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-01.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-01.png)
 
 ### 1.2
 Ganti mainAxisSize: MainAxisSize.min menjadi nilai default dan amati perubahan tinggi kartu.
 
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-10.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-10.png)
 
 ### 1.3
 Tambahkan satu baris data (misal Email) menggunakan pola Row + Expanded yang sama.
 
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-09.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-09.png)
 
 ---
 
@@ -30,18 +30,18 @@ Tambahkan satu baris data (misal Email) menggunakan pola Row + Expanded yang sam
 ### 2.1.
 Ubah breakpoint dari 700 menjadi nilai lain dan amati perubahan jumlah kolom.
 
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-05.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-05.png)
 
 ### 2.2.
 Ubah themeMode menjadi ThemeMode.dark, lalu kembalikan ke ThemeMode.system.
 
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-04.png)
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-05.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-04.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-05.png)
 
 ### 2.3
 Tambahkan Semantics atau label yang bermakna pada elemen yang penting bagi screen reader.
 
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-05.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-05.png)
 
 ---
 
@@ -52,7 +52,7 @@ Dashboard dikembangkan menjadi halaman *Academic Overview* yang memuat:
 2. **Statistik Akademik**: 4 kartu informasi (`InfoCard`) mencakup **IPK (3.85)**, **Kehadiran (95%)**, **SKS Ditempuh (72)**, dan **Status (Aktif)**.
 3. **Breakpoint Konstanta**: Menggunakan satu konstanta global `const double kWideBreakpoint = 700;`.
 
-![](244107020150-mobile-course\02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-06.png)
+![](02-week-2-declarative-ui-responsive-design\screenshots\Screenshot-06.png)
 
 ---
 
