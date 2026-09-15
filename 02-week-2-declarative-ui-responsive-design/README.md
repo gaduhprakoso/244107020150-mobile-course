@@ -11,17 +11,17 @@
 ### 1.1
 Hapus Expanded pada baris nama, lalu amati peringatan overflow atau perilaku layout-nya; kembalikan setelah itu.
 
-![screenshots](screenshots/Screenshots-01.png)
+![](244107020150-mobile-course\screenshots\Screenshot-01.png)
 
 ### 1.2
 Ganti mainAxisSize: MainAxisSize.min menjadi nilai default dan amati perubahan tinggi kartu.
 
-![screenshots](screenshots/Screenshots-10.png)
+![](244107020150-mobile-course\screenshots\Screenshot-10.png)
 
 ### 1.3
 Tambahkan satu baris data (misal Email) menggunakan pola Row + Expanded yang sama.
 
-![screenshots](screenshots/Screenshots-09.png)
+![](244107020150-mobile-course\screenshots\Screenshot-09.png)
 
 ---
 
@@ -30,18 +30,18 @@ Tambahkan satu baris data (misal Email) menggunakan pola Row + Expanded yang sam
 ### 2.1.
 Ubah breakpoint dari 700 menjadi nilai lain dan amati perubahan jumlah kolom.
 
-![screenshots](screenshots/screenshots-05.png)
+![](244107020150-mobile-course\screenshots\Screenshot-05.png)
 
 ### 2.2.
 Ubah themeMode menjadi ThemeMode.dark, lalu kembalikan ke ThemeMode.system.
 
-![screenshots](screenshots/Screenshots-04.png)
-![screenshots](screenshots/Screenshots-05.png)
+![](screenshots/D:\Kuliah\Semester5\Pemograman Mobile\244107020150-mobile-course\screenshots\Screenshot-04.png)
+![](screenshots/D:\Kuliah\Semester5\Pemograman Mobile\244107020150-mobile-course\screenshots\Screenshot-05.png)
 
 ### 2.3
 Tambahkan Semantics atau label yang bermakna pada elemen yang penting bagi screen reader.
 
-![screenshots](screenshots/Screenshots-05.png)
+![](screenshots/D:\Kuliah\Semester5\Pemograman Mobile\244107020150-mobile-course\screenshots\Screenshot-05.png)
 
 ---
 
@@ -52,7 +52,7 @@ Dashboard dikembangkan menjadi halaman *Academic Overview* yang memuat:
 2. **Statistik Akademik**: 4 kartu informasi (`InfoCard`) mencakup **IPK (3.85)**, **Kehadiran (95%)**, **SKS Ditempuh (72)**, dan **Status (Aktif)**.
 3. **Breakpoint Konstanta**: Menggunakan satu konstanta global `const double kWideBreakpoint = 700;`.
 
-![screenshots](screenshots/Screenshots-06.png)
+![](244107020150-mobile-course\screenshots\Screenshot-06.png)
 
 ---
 
