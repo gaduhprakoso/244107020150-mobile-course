@@ -1,0 +1,15 @@
+# Abaikan folder Praktikum sesuai permintaan
+/Praktikum/
+
+# Abaikan file sampah build, dependensi, dan konfigurasi IDE
+.dart_tool/
+.packages
+build/
+.pub/
+.idea/
+.vscode/
+*.iml
+android/local.properties
+.gradle/
+.flutter-plugins
+.flutter-plugins-dependencies
