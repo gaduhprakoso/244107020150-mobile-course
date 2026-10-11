@@ -1,4 +1,4 @@
-# Week4 | Networking & REST API
+# Week 5 Offline Notes
 
 ### Tujuan pembelajaran
 
@@ -12,598 +12,263 @@ Setelah menyelesaikan codelab ini, mahasiswa mampu:
 - menampilkan state loading, error, empty, dan success pada UI dengan AsyncValue + Riverpod;
 - menerapkan pagination dasar (infinite scroll).
 
-### Praktikum 1 - Dio dan model data
-
-Buat project baru:
+### Praktikum 1: SharedPreferences
+siapkan project:
 ```
-flutter create week4_api
-cd week4_api
-flutter pub add dio flutter_riverpod
+flutter create week5_offline_notes
+cd week5_offline_notes
+flutter pub add flutter_riverpod shared_preferences sqflite path
 ```
-1.Model data dengan fromJson aman null
+1.Repository preferensi
 ```
-class Post {
-  const Post({
-    required this.userId,
-    required this.id,
-    required this.title,
-    required this.body,
-  });
+import 'package:shared_preferences/shared_preferences.dart';
 
-  final int userId;
-  final int id;
-  final String title;
-  final String body;
+class PrefsRepository {
+  static const _darkModeKey = 'dark_mode';
+  static const _lastOpenedKey = 'last_opened_at';
 
-  factory Post.fromJson(Map<String, dynamic> json) {
-    return Post(
-      userId: (json['userId'] as num?)?.toInt() ?? 0,
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      title: json['title'] as String? ?? '',
-      body: json['body'] as String? ?? '',
-    );
+  Future<bool> getDarkMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_darkModeKey) ?? false;
   }
 
-  Map<String, dynamic> toJson() => {
-        'userId': userId,
+  Future<void> setDarkMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_darkModeKey, value);
+  }
+
+  Future<void> markOpenedNow() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastOpenedKey, DateTime.now().toIso8601String());
+  }
+
+  Future<String?> getLastOpened() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_lastOpenedKey);
+  }
+}
+```
+2.Provider dan halaman pengaturan
+
+```
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/prefs.dart';
+
+final prefsRepositoryProvider = Provider((ref) => PrefsRepository());
+final darkModeProvider =
+    AsyncNotifierProvider<DarkModeNotifier, bool>(DarkModeNotifier.new);
+
+class DarkModeNotifier extends AsyncNotifier<bool> {
+  @override
+  Future<bool> build() =>
+      ref.watch(prefsRepositoryProvider).getDarkMode();
+
+  Future<void> toggle() async {
+    final next = !(state.value ?? false);
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await ref.read(prefsRepositoryProvider).setDarkMode(next);
+      return next;
+    });
+  }
+}
+```
+### Praktikum 2: SQLite dan repository catatan
+1.Model catatan
+```
+class Note {
+  const Note({
+    this.id,
+    required this.title,
+    this.body = '',
+    required this.updatedAt,
+    this.dirty = false,
+  });
+
+  final int? id;
+  final String title;
+  final String body;
+  final DateTime updatedAt;
+  final bool dirty;
+
+  Map<String, Object?> toMap() => {
         'id': id,
         'title': title,
         'body': body,
+        'updated_at': updatedAt.toIso8601String(),
+        'dirty': dirty ? 1 : 0,
       };
-}
-```
 
-2.Konfigurasi Dio terpusat
-```
-import 'package:dio/dio.dart';
-
-Dio createDio() {
-  final dio = Dio(
-    BaseOptions(
-      baseUrl: 'https://jsonplaceholder.typicode.com',
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 10),
-      headers: {'Accept': 'application/json'},
-    ),
-  );
-  dio.interceptors.add(
-    LogInterceptor(requestBody: true, responseBody: false),
-  );
-  return dio;
-}
-```
-3.Repository sebagai pintu data
-```
-import 'package:dio/dio.dart';
-import '../models/post.dart';
-
-class PostRepository {
-  PostRepository(this._dio);
-  final Dio _dio;
-
-  Future<List<Post>> fetchPosts() async {
-    final response = await _dio.get<List>('/posts');
-    final data = response.data ?? [];
-    return data
-        .whereType<Map<String, dynamic>>()
-        .map(Post.fromJson)
-        .toList();
+  factory Note.fromMap(Map<String, Object?> map) {
+    return Note(
+      id: (map['id'] as num?)?.toInt(),
+      title: map['title'] as String? ?? '',
+      body: map['body'] as String? ?? '',
+      updatedAt: DateTime.tryParse(map['updated_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      dirty: ((map['dirty'] as num?)?.toInt() ?? 0) == 1,
+    );
   }
 }
 ```
-### Praktikum 2 - Provider dan error handling
-
-4.Provider AsyncNotifier + pesan error ramah pengguna
+2.Pembuka Database
 ```
-import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:async';
-import 'api_client.dart';
-import 'models/post.dart';
-import 'repositories/post_repository.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqflite/sqflite.dart';
 
-final dioProvider = Provider<Dio>((ref) => createDio());
-
-final postRepositoryProvider = Provider<PostRepository>(
-  (ref) => PostRepository(ref.watch(dioProvider)),
-);
-
-class PostListNotifier extends AsyncNotifier<List<Post>> {
-  @override
-  Future<List<Post>> build() async {
-    // Exception dari repository otomatis menjadi AsyncError.
-    // Inilah ekuivalen deklaratif dari AsyncValue.guard di versi lama.
-    final repository = ref.watch(postRepositoryProvider);
-    return repository.fetchPosts();
-  }
-
-  Future<void> refresh() async {
-    state = const AsyncLoading();
-    try {
-      final repository = ref.read(postRepositoryProvider);
-      state = AsyncData(await repository.fetchPosts());
-    } catch (e, st) {
-      state = AsyncError(e, st);
-    }
-  }
-}
-
-final postListProvider =
-    AsyncNotifierProvider<PostListNotifier, List<Post>>(
-        PostListNotifier.new,
-        // Nonaktifkan retry otomatis Riverpod 3 agar error langsung
-        // final dan mudah diuji (tanpa ini, future provider di-test
-        // akan me-retry dan menggantung).
-        retry: (retryCount, error) => null);
-
-/// Helper khusus testing (letakkan di providers.dart): membaca state
-/// pertama yang bukan loading lewat listener + completer, sehingga
-/// test tidak menunggu retry dan tidak melakukan HTTP sungguhan.
-Future<List<Post>> readPostsOnce(ProviderContainer container) {
-  final completer = Completer<List<Post>>();
-  final sub = container.listen<AsyncValue<List<Post>>>(
-    postListProvider,
-    (previous, next) {
-      if (next.isLoading || completer.isCompleted) return;
-      next.whenData(completer.complete);
-      if (next.hasError) {
-        completer.completeError(
-          next.error ?? StateError('unknown error'),
-          next.stackTrace ?? StackTrace.empty,
-        );
-      }
+Future<Database> openNotesDb() async {
+  final dir = await getDatabasesPath();
+  return openDatabase(
+    p.join(dir, 'offline_notes.db'),
+    version: 1,
+    onCreate: (db, version) async {
+      await db.execute('''
+        CREATE TABLE notes(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL DEFAULT '',
+          updated_at TEXT NOT NULL,
+          dirty INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE cached_posts(
+          id INTEGER PRIMARY KEY,
+          payload TEXT NOT NULL,
+          cached_at TEXT NOT NULL
+        )
+      ''');
     },
-    fireImmediately: true,
   );
-  return completer.future.whenComplete(sub.close);
 }
+```
+3.Repository sebagai satu-satunya pintu data
+```
+import 'package:sqflite/sqflite.dart';
+import '../local/db.dart';
+import '../local/note.dart';
 
-Future<Object?> readPostsErrorOnce(ProviderContainer container) {
-  final completer = Completer<Object?>();
-  final sub = container.listen<AsyncValue<List<Post>>>(
-    postListProvider,
-    (previous, next) {
-      if (next.isLoading || completer.isCompleted) return;
-      completer.complete(next.error);
-    },
-    fireImmediately: true,
-  );
-  return completer.future.whenComplete(sub.close);
-}
+class NoteRepository {
+  NoteRepository({Future<Database> Function()? openDb})
+      : _openDb = openDb ?? openNotesDb;
 
-String friendlyErrorMessage(Object error) {
-  if (error is DioException) {
-    switch (error.type) {
-      case DioExceptionType.connectionTimeout:
-      case DioExceptionType.sendTimeout:
-      case DioExceptionType.receiveTimeout:
-        return 'Koneksi lambat atau timeout. Periksa internet Anda lalu coba lagi.';
-      case DioExceptionType.connectionError:
-        return 'Tidak dapat terhubung ke server. Periksa internet Anda.';
-      case DioExceptionType.badResponse:
-        final code = error.response?.statusCode;
-        if (code == 404) return 'Data tidak ditemukan (404).';
-        if (code == 401 || code == 403) {
-          return 'Akses ditolak ($code). Periksa kredensial Anda.';
-        }
-        return 'Server bermasalah ($code). Coba lagi nanti.';
-      default:
-        return 'Terjadi kesalahan jaringan. Coba lagi.';
-    }
+  final Future<Database> Function() _openDb;
+
+  Future<List<Note>> fetchNotes() async {
+    final db = await _openDb();
+    final rows = await db.query('notes', orderBy: 'updated_at DESC');
+    return rows.map(Note.fromMap).toList();
   }
-  return 'Terjadi kesalahan tak terduga: $error';
-}
-```
-5.UI: loading, error, empty, success
-```
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/providers.dart';
 
-class PostListPage extends ConsumerWidget {
-  const PostListPage({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final postsAsync = ref.watch(postListProvider);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Posts API'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                ref.read(postListProvider.notifier).refresh(),
-          ),
-        ],
-      ),
-      body: postsAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(friendlyErrorMessage(err),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: () => ref.invalidate(postListProvider),
-                  child: const Text('Coba lagi'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        data: (posts) {
-          if (posts.isEmpty) {
-            return const Center(
-                child: Text('Belum ada data dari server.'));
-          }
-          return RefreshIndicator(
-            onRefresh: () =>
-                ref.read(postListProvider.notifier).refresh(),
-            child: ListView.builder(
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                final post = posts[index];
-                return ListTile(
-                  leading: CircleAvatar(
-                      child: Text(post.id.toString())),
-                  title: Text(post.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  subtitle: Text(post.body,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                );
-              },
-            ),
-          );
-        },
-      ),
+  Future<Note> addNote({required String title, String body = ''}) async {
+    final db = await _openDb();
+    final note = Note(
+      title: title,
+      body: body,
+      updatedAt: DateTime.now(),
+      dirty: true,
+    );
+    final id = await db.insert('notes', note.toMap());
+    return Note(
+      id: id,
+      title: note.title,
+      body: note.body,
+      updatedAt: note.updatedAt,
+      dirty: true,
     );
   }
-}
-```
-6.Entry point dengan ProviderScope
-```
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'pages/post_list_page.dart';
 
-void main() => runApp(const ProviderScope(child: MyApp()));
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-  @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Week 4 - REST API',
-        theme: ThemeData(
-            colorSchemeSeed: Colors.indigo, useMaterial3: true),
-        home: const PostListPage(),
-      );
-}
-```
-![](screenshots\001.png)
-![](screenshots\002.png)
-
-### Praktikum 3 - Pagination dasar
-
-7.Repository paginated
-```
-Future<List<Post>> fetchPostsPage({
-  required int page,
-  int limit = 10,
-}) async {
-  final response = await _dio.get<List>(
-    '/posts',
-    queryParameters: {'_page': page, '_limit': limit},
-  );
-  final data = response.data ?? [];
-  return data
-      .whereType<Map<String, dynamic>>()
-      .map(Post.fromJson)
-      .toList();
-}
-```
-8.Notifier dengan state halaman
-```
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'models/post.dart';
-import 'providers.dart';
-
-class PagedPostsState {
-  const PagedPostsState({
-    this.items = const [],
-    this.page = 0,
-    this.isLoadingMore = false,
-    this.hasMore = true,
-    this.error,
-  });
-
-  final List<Post> items;
-  final int page;
-  final bool isLoadingMore;
-  final bool hasMore;
-  final Object? error;
-}
-```
-8.Notifier dengan state halaman (lanjutan)
-```
-class PagedPostsNotifier extends Notifier<PagedPostsState> {
-  @override
-  PagedPostsState build() {
-    Future.microtask(loadFirstPage);
-    return const PagedPostsState();
+  Future<void> deleteNote(int id) async {
+    final db = await _openDb();
+    await db.delete('notes', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<void> loadFirstPage() async {
-    final repository = ref.read(postRepositoryProvider);
-    try {
-      final items =
-          await repository.fetchPostsPage(page: 1, limit: 10);
-      state = PagedPostsState(
-        items: items,
-        page: 1,
-        hasMore: items.length == 10,
-      );
-    } catch (e) {
-      state = PagedPostsState(error: e);
-    }
+  Future<int> countDirty() async {
+    final db = await _openDb();
+    final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS c FROM notes WHERE dirty = 1');
+    return ((rows.first['c'] as num?)?.toInt() ?? 0);
   }
 
-  Future<void> loadNextPage() async {
-    if (state.isLoadingMore || !state.hasMore) return;
-    final repo = ref.read(postRepositoryProvider);
-    final currentItems = state.items;
-    final currentPage = state.page;
-    state = PagedPostsState(
-      items: currentItems,
-      page: currentPage,
-      isLoadingMore: true,
-      hasMore: state.hasMore,
-    );
-    try {
-      final next = currentPage + 1;
-      final items =
-          await repo.fetchPostsPage(page: next, limit: 10);
-      state = PagedPostsState(
-        items: [...currentItems, ...items],
-        page: next,
-        hasMore: items.length == 10,
-      );
-    } catch (e) {
-      state = PagedPostsState(
-        items: currentItems,
-        page: currentPage,
-        error: e,
-      );
-    }
-  }
-}
-
-final pagedPostsProvider =
-    NotifierProvider<PagedPostsNotifier, PagedPostsState>(
-        PagedPostsNotifier.new);
-```
-
-9.UI infinite scroll
-```
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/paged_posts.dart';
-import '../data/providers.dart';
-
-class PagedPostPage extends ConsumerStatefulWidget {
-  const PagedPostPage({super.key});
-
-  @override
-  ConsumerState<PagedPostPage> createState() =>
-      _PagedPostPageState();
-}
-
-class _PagedPostPageState
-    extends ConsumerState<PagedPostPage> {
-  final _controller = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(() {
-      if (_controller.position.pixels >=
-          _controller.position.maxScrollExtent - 200) {
-        ref.read(pagedPostsProvider.notifier).loadNextPage();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(pagedPostsProvider);
-    if (state.error != null && state.items.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Posts Paged')),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(friendlyErrorMessage(state.error!)),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => ref
-                    .read(pagedPostsProvider.notifier)
-                    .loadFirstPage(),
-                child: const Text('Coba lagi'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    return Scaffold(
-      appBar: AppBar(title: const Text('Posts Paged')),
-      body: ListView.builder(
-        controller: _controller,
-        itemCount: state.items.length + 1,
-        itemBuilder: (context, index) {
-          if (index == state.items.length) {
-            if (!state.hasMore) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child:
-                    Center(child: Text('Semua data termuat.')),
-              );
-            }
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          final post = state.items[index];
-          return ListTile(
-            leading: CircleAvatar(
-                child: Text(post.id.toString())),
-            title: Text(post.title,
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-          );
-        },
-      ),
-    );
+  Future<void> markAllSynced() async {
+    final db = await _openDb();
+    await db.update('notes', {'dirty': 0}, where: 'dirty = 1');
   }
 }
 ```
-![](screenshots\003.png)
-## AI challenge
+### Praktikum 3: Cache-first dan antrean sync
+1.Cache-first read untuk data API
+```
+Future<List<Post>> loadPostsCacheFirst() async {
+  final cached = await readCachedPosts(); // dari tabel cached_posts
+  // 1. Segera kembalikan cache agar UI tidak blank saat offline.
+  // 2. Di background: fetch Dio -> simpan ke cached_posts -> invalidate provider.
+  refreshPostsInBackground();
+  return cached;
+}
+```
+2.Sinkronisasi catatan kotor (dirty)
+```
+Future<int> syncNotes(NoteRepository repo) async {
+  final dirtyCount = await repo.countDirty();
+  if (dirtyCount == 0) return 0;
+  // Simulasi upload: pada project nyata, kirim tiap catatan dirty
+  // ke REST API di sini, lalu tandai bersih bila server menjawab 2xx.
+  await Future.delayed(const Duration(seconds: 1));
+  await repo.markAllSynced();
+  return dirtyCount;
+}
+```
+### AI Challenge
+Minta AI coding assistant (Cursor, Copilot, Claude Code, atau tool setara) dengan prompt berikut:
 
 ### AI Prompt Challenge
-Minta AI coding assistant (Cursor, Copilot, Claude Code, atau tool setara) dengan prompt berikut:
 ```
-Buatkan repository layer Flutter untuk endpoint GET /comments?postId={id}
-dari JSONPlaceholder menggunakan Dio + flutter_riverpod.
-Requirements:
-- Model Comment dengan fromJson aman null (postId, id, name, email, body).
-- CommentRepository dengan method fetchComments(postId) + timeout 10 detik.
-- AsyncNotifierProvider dengan penanganan error otomatis (AsyncError)
-  dan fungsi pesan error
-  ramah pengguna untuk timeout, connection error, 404, dan 500.
-- Satu unit test untuk fromJson dengan field yang hilang.
-Jelaskan setiap bagian kode dalam komentar.
+Aplikasi Flutter Offline Notes: CRUD catatan + preferensi tema.
+Bandingkan SharedPreferences, Hive, sqflite (SQLite), dan Drift
+untuk dua kebutuhan ini. Requirements:
+- Kriteria: kompleksitas query, kebutuhan relasi, reaktivitas (stream),
+  type-safety, ukuran boilerplate, dan kemudahan testing.
+- Beri rekomendasi final: mana untuk preferensi, mana untuk catatan,
+  beserta alasannya dalam 1 tabel.
+- Tunjukkan skema tabel/kotak untuk 1000+ catatan.
+Jelaskan trade-off setiap pilihan.
 ```
 
-AI Verification Checklist
+### AI Verification Checklist
 
-1. **Apakah UI memanggil Dio secara langsung?**  
-   Tidak. UI mengakses data melalui provider dan repository.
+1. **Apakah daftar catatan disimpan di SharedPreferences?** Tidak. SharedPreferences hanya untuk preferensi kecil seperti tema. Catatan disimpan di SQLite (sqflite) karena mendukung query dan manajemen data terstruktur.
+2. **Apakah skema mendukung antrean sync?** Ya (lokal). Skema menggunakan penanda dirty dan updated_at untuk data yang belum terkirim, meski belum menjadi sistem sync server penuh yang tahan konflik.
+3. **Apakah real-time didukung stream?** Tidak. Implementasi sqflite menggunakan Future. Pembaruan UI dilakukan secara eksplisit lewat invalidasi provider setiap selesai operasi CRUD.
+4. **Apakah estimasi boilerplate sudah dibandingkan lewat instalasi semua
+   opsi?**
+   Belum. Kesimpulan bahwa setup Drift lebih rumit (butuh code-gen) didasarkan pada perbandingan arsitektur, bukan uji coba instalasi.
+5. **Keputusan final: setuju dengan rekomendasi AI.** 
+Gunakan SharedPreferences untuk pengaturan dan sqflite untuk catatan. Kombinasi ini sudah memadai untuk CRUD offline dan antrean sync dasar tanpa perlu kompleksitas Drift saat ini.
 
-2. **Apakah `Comment.fromJson` aman terhadap nilai null?**  
-   Ya. Comment.fromJson sudah null-safe. Data API yang hilang, null, atau salah tipe otomatis diganti dengan nilai default.
+## Screenshots
 
-3. **Apakah error Dio dipetakan ke pesan untuk pengguna?**  
-   Ya. seluruh kendala teknis dari Dio (jaringan timeout maupun error server seperti 404/500) sudah dipetakan menjadi pesan yang ramah pengguna.
+![](screenshots\001.png)
+![](screenshots\003.png)
+![](screenshots\002.png)
+![](screenshots\004.png)
 
-4. **Apakah `baseUrl` dan timeout terpusat di satu client?**  
-   Konfigurasi dasar (baseUrl) terpusat di api_client.dart, namun ada kustomisasi timeout khusus (10 detik) di CommentRepository.
 
-5. **Apakah test mencakup field hilang dan edge case?**  
-   Ya. engujian pada test/comment_test.dart berhasil (passed) dan sudah mencakup pengujian edge cases (data kosong/salah).
+## Refleksi
 
-6. **Hasil `flutter analyze` dan `flutter test`:**
-   - flutter analyze: Tersisa 1 peringatan unused import di main.dart.
-   - flutter test: Lulus untuk model, tapi gagal di smoke test bawaan karena UI Counter awal sudah dihapus/ditimpa.
+### 1. Mengapa daftar catatan tidak disimpan di SharedPreferences?
 
-## Refactoring dan testing
+haredPreferences didesain untuk data key-value sederhana. Menyimpan daftar catatan di dalamnya memaksa aplikasi membaca dan menulis ulang seluruh data untuk setiap perubahan kecil, sehingga tidak efisien, rentan korup, dan tidak memiliki fitur query atau indeks.
 
-Buat test/post_test.dart, uji parsing aman null, mapping error, dan provider dengan repository palsu (tanpa internet):
-```
-import 'package:flutter_test/flutter_test.dart';
-import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:week4_api/data/models/post.dart';
-import 'package:week4_api/data/providers.dart';
-import 'package:week4_api/data/repositories/post_repository.dart';
+### 2. Kapan strategi cache-first cukup?
 
-class FakePostRepository extends PostRepository {
-  FakePostRepository({this.items, this.throwError = false})
-      : super(Dio());
-  final List<Post>? items;
-  final bool throwError;
+Cocok untuk data informatif yang tetap berguna meski sedikit tertinggal (misal: artikel/postingan), sehingga aplikasi tetap responsif saat offline. Jangan gunakan untuk data yang cepat berubah dan krusial (seperti harga saham atau stok barang) yang mewajibkan strategi network-first.
 
-  @override
-  Future<List<Post>> fetchPosts() async {
-    if (throwError) {
-      throw DioException(
-        requestOptions: RequestOptions(path: '/posts'),
-        type: DioExceptionType.connectionError,
-      );
-    }
-    return items ?? const [];
-  }
+### 3. Bagaimana dirty flag menjadi antrean sync?
 
-  @override
-  Future<List<Post>> fetchPostsPage(
-      {required int page, int limit = 10}) async {
-    return fetchPosts();
-  }
-}
+Flag dirty=1 menandai catatan yang diubah offline agar UI bisa langsung diperbarui, sementara proses di background mencari flag ini untuk diunggah ke server. Namun, implementasi saat ini baru sebatas simulasi. Untuk sistem sync produksi yang kompleks (mendukung urutan operasi, hapus, dan retry), diperlukan tabel outbox terpisah.
 
-void main() {
-  test('fromJson aman terhadap field yang hilang', () {
-    final post = Post.fromJson({'id': 7});
-    expect(post.id, 7);
-    expect(post.title, '');
-    expect(post.userId, 0);
-  });
+### 4. Rekomendasi AI mana yang ditolak?
 
-  test('friendlyErrorMessage untuk connection error', () {
-    final err = DioException(
-      requestOptions: RequestOptions(path: '/posts'),
-      type: DioExceptionType.connectionError,
-    );
-    expect(friendlyErrorMessage(err), contains('terhubung'));
-  });
-
-  test('provider sukses dengan repository palsu', () async {
-    final container = ProviderContainer(
-      overrides: [
-        postRepositoryProvider.overrideWithValue(
-          FakePostRepository(items: [
-            const Post(
-                userId: 1, id: 1, title: 'Tes', body: 'Isi'),
-          ]),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    // Gunakan helper readPostsOnce (lihat providers.dart).
-    final posts = await readPostsOnce(container);
-    expect(posts.length, 1);
-    expect(posts.first.title, 'Tes');
-  });
-
-  test('provider error dengan repository palsu', () async {
-    final container = ProviderContainer(
-      overrides: [
-        postRepositoryProvider.overrideWithValue(
-          FakePostRepository(throwError: true),
-        ),
-      ],
-    );
-    addTearDown(container.dispose);
-    // Gunakan helper readPostsErrorOnce (lihat providers.dart).
-    final err = await readPostsErrorOnce(container);
-    expect(err, isA<DioException>());
-    expect(friendlyErrorMessage(err!), contains('terhubung'));
-  });
-}
-```
-
+Pilihan teknologinya disetujui (SharedPreferences + sqflite), namun klaim berlebihannya ditolak. Flag dirty saat ini belum merupakan antrean sync yang utuh, dan aplikasinya belum real-time karena masih menggunakan Future (bukan stream query seperti Drift). Upgrade ini baru akan dipertimbangkan jika kebutuhannya sudah mendesak.
