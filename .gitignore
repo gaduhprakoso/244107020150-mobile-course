@@ -1,5 +1,10 @@
-# Abaikan folder Praktikum sesuai permintaan
-/Praktikum/
+# Abaikan folder Praktikum sesuai permintaan, kecuali dokumen Markdown campus_notify
+/Praktikum/*
+!/Praktikum/campus_notify/
+/Praktikum/campus_notify/*
+!/Praktikum/campus_notify/docs/
+/Praktikum/campus_notify/docs/*
+!/Praktikum/campus_notify/docs/*.md
 
 # Abaikan file sampah build, dependensi, dan konfigurasi IDE
 .dart_tool/
